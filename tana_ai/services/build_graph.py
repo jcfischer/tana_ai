@@ -79,7 +79,8 @@ def graph(json_data, number_of_iterations=5):
 
             child = index[child_id]
             if child.props.name:
-                dump_node.content.append(child.props.name)
+                new_name = patch_node_name(child)
+                dump_node.content.append(new_name)
                 recursive_content_append(child, iterations - 1)
 
     def patch_node_name(node: NodeDump):
