@@ -33,6 +33,7 @@ class NodeDump(BaseModel):
   inbound_refs: Optional[List[str]] = []
   outbound_refs: Optional[List[str]] = []
   color: Optional[str] = None
+  tag: Optional[List[str]] = []
   
 
 # config for graph visualization.

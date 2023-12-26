@@ -22,7 +22,7 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
     filename = args.file
-    data = load_json_file('data/small.json')
+    data = load_json_file('data/big.json')
 
     graph_data = graph(data)
-    print(graph_data)
+    print(graph_data.model_dump_json())

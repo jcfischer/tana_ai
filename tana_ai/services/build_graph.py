@@ -22,6 +22,14 @@ class Link(BaseModel):
     reason: str
 
 
+class DumpNode(BaseModel):
+    id: str
+    name: Optional[str]
+    content: Optional[List[str]] = []
+    color: Optional[str] = None
+    tag: Optional[List[str]] = []
+
+
 class RenderNode(BaseModel):
     id: str
     name: Optional[str]
@@ -35,7 +43,11 @@ class DirectedGraph(BaseModel):
     links: List[Link] = []
 
 
-def graph(json_data):
+class ContentDump(BaseModel):
+    nodes: List[DumpNode] = []
+
+
+def graph(json_data, number_of_iterations=5):
     tana_dump = TanaDump.model_validate(json_data)
 
     # walk the data and build a hash of node ids
@@ -56,6 +68,19 @@ def graph(json_data):
         if source_id in index and target_id in index:
             link = Link(source=source_id, target=target_id, reason=reason)
             links.append(link)
+
+    def recursive_content_append(node, iterations):
+        # print(node.id)
+        if iterations == 0 or not node.children:
+            return
+        for child_id in node.children:
+            if child_id not in index:
+                return
+
+            child = index[child_id]
+            if child.props.name:
+                dump_node.content.append(child.props.name)
+                recursive_content_append(child, iterations - 1)
 
     def patch_node_name(node: NodeDump):
         # replace <span .. inline refs with actual node names
@@ -125,7 +150,7 @@ def graph(json_data):
                                                 continue
                                             if child_id not in trash and child_id in index:
                                                 supertag = index[child_id]
-                                                # print (f'{tag_name} -> {supertag.props.name}')
+                                                # print(f'{tag_name} -> {supertag.props.name}')
                                                 if config.include_tag_tag_links:
                                                     master_pairs.append((tag_id, child_id, 'itn'))
                                     else:
@@ -191,7 +216,14 @@ def graph(json_data):
                                 continue
                             if tag_id not in trash:
                                 if config.include_node_tag_links:
-                                    master_pairs.append((data_node_id, tag_id, 'itl'))
+                                    # append the name of the tag to the node
+                                    if tag_id in index:
+
+                                        tag_name = index[tag_id].props.name
+                                        if tag_name is None:
+                                            tag_name = ''
+                                        index[data_node_id].tag.append(tag_name)
+                                        master_pairs.append((data_node_id, tag_id, 'itl'))
                                 # also apply the color of the tag...
                                 if tag_id in tag_colors:
                                     index[data_node_id].color = tag_colors[tag_id]
@@ -244,6 +276,7 @@ def graph(json_data):
 
     # build the retrun structure...
     graph = DirectedGraph()
+    dump = ContentDump()
 
     count = 0
     node_ids = []
@@ -260,7 +293,9 @@ def graph(json_data):
         node = index[node_id]
         # patch up node name
         new_name = patch_node_name(node)
-        render_node = RenderNode(id=node.id, name=new_name, color=node.color)
-        graph.nodes.append(render_node)
+        dump_node = DumpNode(id=node.id, name=new_name, color=node.color, tag=node.tag)
 
-    return graph
+        recursive_content_append(node, number_of_iterations)
+        dump.nodes.append(dump_node)
+
+    return dump
